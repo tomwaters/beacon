@@ -14,6 +14,7 @@ function init()
   --typey.debugcmd("play 1")
   
   redraw()
+
 end
 
 function cmd_handler(cmd)
@@ -37,6 +38,7 @@ end
 
 function redraw()
   screen.clear()
+  screen.level(15)
   screen.font_size(8)
   
   -- current command

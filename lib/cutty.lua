@@ -6,11 +6,13 @@ cutty.init = function()
   for i=1, softcut.VOICE_COUNT do
     cutty.voices[i] = {
       start_sec = 0,
-      end_sec = softcut.BUFFER_SIZE
+      end_sec = softcut.BUFFER_SIZE,
+      rate = 1.0
     }
     softcut.loop_start(i, cutty.voices[i].start_sec)
     softcut.loop_end(i, cutty.voices[i].end_sec)
   end
+  math.randomseed(os.time())
 end
 
 local okResponse = "ok"
@@ -34,13 +36,15 @@ function play_voice(voice_num)
 end
 
 -- helper to trigger voice at regullar interval
-function every_handler(voice_num, x, unit)
+function every_handler(voice_num, x, unit, chance)
   while true do
     if unit == "b" then
       clock.sync(x)
     end
-    
-    play_voice(voice_num)
+
+    if math.random() <= chance  then    
+      play_voice(voice_num)
+    end
     
     if uint == "s" then
       clock.sleep(x)
@@ -89,6 +93,17 @@ cutty.cmds["help"] = function(args)
   return out:sub(1, -3)
 end
 
+cutty.cmds["bpm"] = function(args)
+  if #args == 0 then
+    return "bpm "..params:get("clock_tempo")
+  elseif args[1] == "help" then
+    return "bpm <bpm>"
+  else
+    local new_tempo = getArgNum(args[1], "bpm")
+    params:set("clock_tempo", new_tempo)
+    return okResponse
+  end
+end
 
 cutty.cmds["load"] = function(args)
   if #args == 0 or args[1] == "help" then
@@ -107,36 +122,49 @@ cutty.cmds["load"] = function(args)
 end
 
 cutty.cmds["voice"] = function(args)
-  if #args < 2 or args[1] == "help" then
+  if #args < 1 or args[1] == "help" then
     return "voice <v#> <b#>"
   end
   
   local voice_num = getArgNum(args[1], "voice")
-  local buf_num = getArgNum(args[2], "voice")
-
-  softcut.enable(voice_num, 1)
-  softcut.buffer(voice_num, buf_num)
-  softcut.level(voice_num, 1.0)
-  softcut.loop(voice_num, 0)
-  softcut.loop_end(voice_num, softcut.BUFFER_SIZE)
-  
-  return okResponse  
+  if #args == 1 then
+    if cutty.voices[voice_num].buffer == nil then
+      return "not set"
+    else
+      return "voice "..voice_num.." buffer "..cutty.voices[voice_num].buffer
+    end
+  else
+    local buf_num = getArgNum(args[2], "voice")
+    cutty.voices[voice_num].buffer = buf_num
+    
+    softcut.enable(voice_num, 1)
+    softcut.buffer(voice_num, buf_num)
+    softcut.level(voice_num, 1.0)
+    softcut.loop(voice_num, 0)
+    softcut.loop_end(voice_num, softcut.BUFFER_SIZE)
+    
+    return okResponse
+  end
 end
 
 cutty.cmds["range"] = function(args)
-  if #args < 3 or args[1] == "help" then
+  if (#args ~= 1 and #args ~=3) or args[1] == "help" then
     return "range <v#> <s> <e>"
   end
 
   local voice_num = getArgNum(args[1], "range")
-  local start_sec = getArgNum(args[2], "range")
-  local end_sec = getArgNum(args[3], "range")
-  cutty.voices[voice_num].start_sec = start_sec
-  cutty.voices[voice_num].end_sec = end_sec
-  softcut.loop_start(voice_num, cutty.voices[voice_num].start_sec)
-  softcut.loop_end(voice_num, cutty.voices[voice_num].end_sec)
-  
-  return okResponse  
+  if #args == 1 then
+    return "range "..cutty.voices[voice_num].start_sec.." "..cutty.voices[voice_num].end_sec
+  else
+    local start_sec = getArgNum(args[2], "range")
+    local end_sec = getArgNum(args[3], "range")
+    cutty.voices[voice_num].start_sec = start_sec
+    cutty.voices[voice_num].end_sec = end_sec
+    softcut.loop_start(voice_num, cutty.voices[voice_num].start_sec)
+    softcut.loop_end(voice_num, cutty.voices[voice_num].end_sec)
+    
+    return okResponse      
+  end
 end
 
 cutty.cmds["play"] = function(args)
@@ -161,6 +189,7 @@ cutty.cmds["stop"] = function(args)
   if cutty.voices[voice_num].every_clock ~= nil then
     clock.cancel(cutty.voices[voice_num].every_clock)
     cutty.voices[voice_num].every_clock = nil
+    cutty.voices[voice_num].every = nil
   end
   
   return okResponse  
@@ -188,37 +217,62 @@ cutty.cmds["loop"] = function(args)
 end
 
 cutty.cmds["rate"] = function(args)
-  if #args < 2 or args[1] == "help" then
+  if #args < 1 or args[1] == "help" then
     return "rate <v#> r"
   end
 
   local voice_num = getArgNum(args[1], "rate")
-  local rate = getArgNum(args[2], "rate")
-  softcut.rate(voice_num, rate)
-
-  return okResponse  
+  if #args == 1 then
+    return "rate "..cutty.voices[voice_num].rate
+  else
+    local rate = getArgNum(args[2], "rate")
+    cutty.voices[voice_num].rate = rate
+    softcut.rate(voice_num, rate)
+  
+    return okResponse
+  end
 end
 
 cutty.cmds["every"] = function(args)
-  if #args < 3 or args[1] == "help" then
-    return "every <v#> x b/s"
+  if #args == 0 or #args == 2 or args[1] == "help" then
+    return "every <v#> x b/s n%"
   end
   
   local voice_num = getArgNum(args[1], "every")
-  local every = getArgNum(args[2], "every")
-  local unit = args[3]
-  if unit ~= "b" and unit ~= "s" then
-    return cutty.cmds["every"]({"help"})
+  if #args == 1 then
+    if cutty.voices[voice_num].every == nil then
+      return "every not set"
+    else
+      return "every "..cutty.voices[voice_num].every.every.." "..cutty.voices[voice_num].every.unit.." "..cutty.voices[voice_num].every.chance
+    end
+      
+  else
+    local every = getArgNum(args[2], "every")
+    local unit = args[3]
+    if unit ~= "b" and unit ~= "s" then
+      return cutty.cmds["every"]({"help"})
+    end
+    
+    local chance = 100
+    if #args == 4 then
+      local rnd = string.gsub(args[4], "%%", "")
+      chance = getArgNum(rnd, "every")
+    end
+    
+    -- cancel existing clock
+    if cutty.voices[voice_num].every_clock ~= nil then
+      clock.cancel(cutty.voices[voice_num].every_clock)
+    end
+    
+    cutty.voices[voice_num].every = {
+      every = every,
+      unit = unit,
+      chance = chance
+    }
+    cutty.voices[voice_num].every_clock = clock.run(every_handler, voice_num, every, unit, chance / 100)
+    
+    return okResponse
   end
-  
-  -- cancel existing clock
-  if cutty.voices[voice_num].every_clock ~= nil then
-    clock.cancel(cutty.voices[voice_num].every_clock)
-  end
-  
-  cutty.voices[voice_num].every_clock = clock.run(every_handler, voice_num, every, unit)
-  
-  return okResponse
 end
 
 return cutty
