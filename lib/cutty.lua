@@ -1,3 +1,5 @@
+er = require("er")
+
 cutty = {}
 cutty.voices = {}
 cutty.cmds = {}
@@ -5,6 +7,7 @@ cutty.cmds = {}
 cutty.init = function()
   for i=1, softcut.VOICE_COUNT do
     cutty.voices[i] = {
+      level = 1.0,
       start_sec = 0,
       end_sec = softcut.BUFFER_SIZE,
       rate = 1.0
@@ -36,18 +39,32 @@ function play_voice(voice_num)
 end
 
 -- helper to trigger voice at regullar interval
-function every_handler(voice_num, x, unit, chance)
+function every_handler(voice_num)
   while true do
-    if unit == "b" then
-      clock.sync(x)
+    local every = cutty.voices[voice_num].every
+    local euc = cutty.voices[voice_num].euc
+    
+    if every.unit == "b" then
+      clock.sync(every.every)
     end
 
-    if math.random() <= chance  then    
-      play_voice(voice_num)
+    if math.random() <= every.chance / 100 then
+      local do_play = true
+      if euc ~= nil then
+        if euc.pos > #euc.pattern then
+          euc.pos = 1
+        end
+        do_play = euc.pattern[euc.pos]
+        euc.pos = euc.pos + 1
+      end
+      
+      if do_play then
+        play_voice(voice_num)
+      end
     end
     
-    if uint == "s" then
-      clock.sleep(x)
+    if every.unit == "s" then
+      clock.sleep(every.every)
     end
   end
 end
@@ -147,8 +164,25 @@ cutty.cmds["voice"] = function(args)
   end
 end
 
+cutty.cmds["level"] = function(args)
+  if #args < 1 or args[1] == "help" then
+    return "level <v#> <l>"
+  end
+  
+  local voice_num = getArgNum(args[1], "level")
+  if #args == 1 then
+    return "level "..cutty.voices[voice_num].level
+  else
+    local new_level = getArgNum(args[2], "voice")
+    cutty.voices[voice_num].level = new_level
+    softcut.level(voice_num, new_level)
+
+    return okResponse
+  end
+end
+
 cutty.cmds["range"] = function(args)
-  if (#args ~= 1 and #args ~=3) or args[1] == "help" then
+  if #args == 0 or #args == 2 or args[1] == "help" then
     return "range <v#> <s> <e>"
   end
 
@@ -168,7 +202,7 @@ cutty.cmds["range"] = function(args)
 end
 
 cutty.cmds["play"] = function(args)
-  if #args < 1 or args[1] == "help" then
+  if #args == 0 or args[1] == "help" then
     return "play <v#>"
   end
   
@@ -217,8 +251,8 @@ cutty.cmds["loop"] = function(args)
 end
 
 cutty.cmds["rate"] = function(args)
-  if #args < 1 or args[1] == "help" then
-    return "rate <v#> r"
+  if #args == 0 or args[1] == "help" then
+    return "rate <v#> <r>"
   end
 
   local voice_num = getArgNum(args[1], "rate")
@@ -235,7 +269,7 @@ end
 
 cutty.cmds["every"] = function(args)
   if #args == 0 or #args == 2 or args[1] == "help" then
-    return "every <v#> x b/s n%"
+    return "every <v#> <x> <b/s> (n%)"
   end
   
   local voice_num = getArgNum(args[1], "every")
@@ -269,9 +303,52 @@ cutty.cmds["every"] = function(args)
       unit = unit,
       chance = chance
     }
-    cutty.voices[voice_num].every_clock = clock.run(every_handler, voice_num, every, unit, chance / 100)
+    cutty.voices[voice_num].every_clock = clock.run(every_handler, voice_num)
     
     return okResponse
+  end
+end
+
+cutty.cmds["euc"] = function(args)
+  if #args == 0 or #args == 2 or args[1] == "help" then
+    return "euc <v#> <p> <s> (o)"
+  end
+  
+  local voice_num = getArgNum(args[1], "euc")
+  if #args == 1 then
+    if cutty.voices[voice_num].euc == nil then
+      return "euc not set"
+    else
+      return "euc "..cutty.voices[voice_num].euc.pulses.." "..cutty.voices[voice_num].euc.steps.." "..cutty.voices[voice_num].euc.offset
+    end
+  else
+    local pulses = getArgNum(args[2], "euc")
+    local steps = getArgNum(args[3], "euc")
+    
+    if pulses > steps then
+      return cutty.cmds["euc"]({"help"})
+    end
+    
+    local offset = 0
+    if #args >= 4 then
+      offset = getArgNum(args[4], "euc")
+    end
+
+    local pos = 1
+    if cutty.voices[voice_num].euc ~= nil then
+      pos = cutty.voices[voice_num].euc.pos
+    end
+    
+    cutty.voices[voice_num].euc = {
+      pulses = pulses,
+      steps = steps,
+      offset = offset,
+      pattern = er.gen(pulses, steps, offset),
+      pos = pos
+    }
+    
+    return okResponse
+    
   end
 end
 
