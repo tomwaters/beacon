@@ -129,9 +129,12 @@ cutty.cmds["load"] = function(args)
 
   local file = _path.dust..args[1]
   if #args == 1 then
+    softcut.buffer_clear_channel(1)
+    softcut.buffer_clear_channel(2)
     softcut.buffer_read_stereo(file, 0, 0, -1)
   else
     local buf_num = getArgNum(args[2], "load")
+    softcut.buffer_clear_channel(buf_num)
     softcut.buffer_read_mono(file, 0, 0, -1, 1, buf_num)
   end
   

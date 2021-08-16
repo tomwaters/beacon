@@ -3,6 +3,7 @@ local cutty = include('lib/cutty')
 
 local output_lines = 8
 output = {}
+redraw_metro = metro.init()
 
 
 function init()
@@ -14,7 +15,9 @@ function init()
   --typey.debugcmd("play 1")
   
   redraw()
-
+  
+  redraw_metro.event = metro_redraw
+  redraw_metro:start(1 / 30)
 end
 
 function cmd_handler(cmd)
@@ -36,15 +39,28 @@ function redraw_handler()
   redraw()
 end
 
+function metro_redraw()
+  redraw()
+end
+
 function redraw()
   screen.clear()
   screen.level(15)
   screen.font_size(8)
   
   -- current command
+  local cur_line = "> "..typey.cmd_input
   screen.move(0, 60)
-  screen.text("> "..typey.cmd_input)
-    
+  screen.text(cur_line)
+  
+  -- cursor
+  if util.round(util.time()) % 2 == 0 then
+    local blink_x = screen.text_extents(string.gsub(cur_line, " ", "v"))
+    screen.move(blink_x, 60)
+    screen.line(blink_x + 4, 60)
+    screen.stroke()
+  end
+  
   -- command history
   for i=1, #output do
     screen.move(0, 60 - (i * 6))
