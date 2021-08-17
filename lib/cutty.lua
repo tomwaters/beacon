@@ -32,6 +32,14 @@ end
 
 -- helper to play a voice (one shot)
 function play_voice(voice_num)
+  if cutty.voices[voice_num].rate_min ~= nil and cutty.voices[voice_num].rate_max ~= nil then
+    local rnd_rate = cutty.voices[voice_num].rate_min + ((cutty.voices[voice_num].rate_max - cutty.voices[voice_num].rate_min) * math.random())
+    softcut.rate(voice_num, rnd_rate)
+  elseif cutty.voices[voice_num].rates ~= nil then
+    local rnd_rate = cutty.voices[voice_num].rates[math.random(#cutty.voices[voice_num].rates)]
+    softcut.rate(voice_num, rnd_rate)
+  end
+  
   softcut.loop(voice_num, 1)
   softcut.position(voice_num, cutty.voices[voice_num].start_sec)
   softcut.play(voice_num, 1)
@@ -260,14 +268,40 @@ cutty.cmds["rate"] = function(args)
 
   local voice_num = getArgNum(args[1], "rate")
   if #args == 1 then
-    return "rate "..cutty.voices[voice_num].rate
+    if cutty.voices[voice_num].rate_min ~= nil and cutty.voices[voice_num].rate_max ~= nil then
+      return "rate "..cutty.voices[voice_num].rate_min.." "..cutty.voices[voice_num].rate_max
+    elseif cutty.voices[voice_num].rates ~= nil then
+      return "rate "..table.concat(cutty.voices[voice_num].rates, ",")
+    else
+      return "rate "..cutty.voices[voice_num].rate
+    end
+  elseif #args == 3 then
+    -- random between min/max
+    cutty.voices[voice_num].rate_min = getArgNum(args[2], "rate")
+    cutty.voices[voice_num].rate_max = getArgNum(args[3], "rate")
+    cutty.voices[voice_num].rates = nil
+    if cutty.voices[voice_num].rate_max < cutty.voices[voice_num].rate_min then
+      cutty.voices[voice_num].rate_max = cutty.voices[voice_num].rate_min
+    end
+  elseif args[2]:find(",", 1, true) ~= nil then
+    -- random from range
+    cutty.voices[voice_num].rates = {}
+    for v in string.gmatch(args[2], "[^,]+") do
+      local rate = getArgNum(v, "rate")
+      table.insert(cutty.voices[voice_num].rates, rate)
+    end
+    cutty.voices[voice_num].rate_min = nil
+    cutty.voices[voice_num].rate_max = nil
   else
     local rate = getArgNum(args[2], "rate")
     cutty.voices[voice_num].rate = rate
+    cutty.voices[voice_num].rates = nil
+    cutty.voices[voice_num].rate_min = nil
+    cutty.voices[voice_num].rate_max = nil
     softcut.rate(voice_num, rate)
-  
-    return okResponse
   end
+  
+  return okResponse
 end
 
 cutty.cmds["every"] = function(args)

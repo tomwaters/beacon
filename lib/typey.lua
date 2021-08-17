@@ -30,7 +30,7 @@ typey.code = function(code, value)
   if value == 1 or value == 2 then
     if code == "BACKSPACE" then
       typey.cmd_input = typey.cmd_input:sub(1, typey.cmd_cursor_pos - 2)..typey.cmd_input:sub(typey.cmd_cursor_pos)
-      if #typey.cmd_input > 1 then
+      if #typey.cmd_input > 0 then
         typey.cmd_cursor_pos = typey.cmd_cursor_pos - 1
       end
     elseif code == "ENTER" then
