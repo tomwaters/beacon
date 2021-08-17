@@ -10,8 +10,8 @@ function init()
   typey.init(cmd_handler, redraw_handler)
   cutty.init()
 
-  typey.debugcmd("load audio/tehn/whirl1.aif")
-  typey.debugcmd("voice 1 1")
+  typey.debugcmd("load audio/tehn/whirl2.aif")
+  --typey.debugcmd("voice 1 1")
   --typey.debugcmd("play 1")
   
   redraw()
@@ -37,6 +37,9 @@ end
 
 function redraw_handler()
   redraw()
+  
+  -- stop the screen going to sleep if typing
+  screen.ping()
 end
 
 function metro_redraw()
@@ -55,9 +58,18 @@ function redraw()
   
   -- cursor
   if util.round(util.time()) % 2 == 0 then
-    local blink_x = screen.text_extents(string.gsub(cur_line, " ", "v"))
-    screen.move(blink_x, 60)
-    screen.line(blink_x + 4, 60)
+    
+    -- figure out the cursor position
+    local cursor_text = cur_line:sub(1, typey.cmd_cursor_pos + 1)
+    local blink_x = screen.text_extents(cursor_text)
+    
+    -- trailing whitespace isn't included in text_extents
+    if cursor_text:sub(-#" ") == " " then
+      blink_x = blink_x + 4
+    end
+    
+    screen.move(blink_x + 1, 61)
+    screen.line(blink_x + 5, 61)
     screen.stroke()
   end
   
