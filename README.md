@@ -97,8 +97,15 @@ Enter with just a voice to view the current range for that voice.
 *rate \<v#\> \<r\> (r2) (p)*
 
 Set the rate to play the specified voice (1.0 is default speed, 2.0 is twice speed etc).
-Enter a min and max rate to play at a random rate between the two.
+
+Enter a min and max rate to play at a random rate between the two. 
+
 Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (UP/DN/RND) to play a sequence.
+```
+rate 2
+rate 1 1.5
+rate 0.5,1,1.5 RND
+```
 Enter with just a voice to view the current rate for that voice.
 
 #### play
