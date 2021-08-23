@@ -1,3 +1,7 @@
+--
+-- library to handle keyboard input
+--
+
 typey = {}
 typey.init = function(cmd_callback, redraw_callback)
   typey.cmd_callback = cmd_callback;
@@ -54,6 +58,10 @@ typey.code = function(code, value)
       typey.cmd_cursor_pos = typey.cmd_cursor_pos - 1
     elseif code == "RIGHT" and typey.cmd_cursor_pos <= #typey.cmd_input then
       typey.cmd_cursor_pos = typey.cmd_cursor_pos + 1
+    elseif code == "HOME" then
+      typey.cmd_cursor_pos = 1
+    elseif code == "END" then
+      typey.cmd_cursor_pos = #typey.cmd_input + 1   
     end
     typey.redraw_callback()
   end
@@ -67,11 +75,11 @@ function keyboard.code(code, value)
   typey.code(code, value)
 end
 
+-- debug to allow me to run a command from maiden
 typey.debugcmd = function(cmd)
   typey.add_command_history(typey.cmd_input)
   typey.cmd_callback(cmd)
   typey.cmd_input = ""
 end
-
 
 return typey

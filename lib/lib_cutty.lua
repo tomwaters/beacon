@@ -1,3 +1,7 @@
+--
+-- library to provide softcut functionality
+--
+
 er = require("er")
 
 cutty = {}
@@ -10,7 +14,7 @@ cutty.init = function()
       level = 1.0,
       start_sec = 0,
       end_sec = softcut.BUFFER_SIZE,
-      rate = 1.0
+      rate_min = 1.0
     }
     softcut.loop_start(i, cutty.voices[i].start_sec)
     softcut.loop_end(i, cutty.voices[i].end_sec)
@@ -32,12 +36,31 @@ end
 
 -- helper to play a voice (one shot)
 function play_voice(voice_num)
-  if cutty.voices[voice_num].rate_min ~= nil and cutty.voices[voice_num].rate_max ~= nil then
+  if cutty.voices[voice_num].rates ~= nil then
+    local rate = cutty.voices[voice_num].rates[cutty.voices[voice_num].rate_next]
+    softcut.rate(voice_num, rate)
+    
+    -- calc next step
+    if cutty.voices[voice_num].rate_pattern == "RND" then
+      cutty.voices[voice_num].rate_next = math.random(#cutty.voices[voice_num].rates)
+    elseif cutty.voices[voice_num].rate_pattern == "UP" then
+      if cutty.voices[voice_num].rate_next == #cutty.voices[voice_num].rates then
+        cutty.voices[voice_num].rate_next = 1
+      else
+        cutty.voices[voice_num].rate_next = cutty.voices[voice_num].rate_next + 1
+      end
+    elseif cutty.voices[voice_num].rate_pattern == "DN" then
+      if cutty.voices[voice_num].rate_next == 1 then
+        cutty.voices[voice_num].rate_next = #cutty.voices[voice_num].rates
+      else
+        cutty.voices[voice_num].rate_next = cutty.voices[voice_num].rate_next - 1
+      end
+    end
+  elseif cutty.voices[voice_num].rate_max ~= nil then
     local rnd_rate = cutty.voices[voice_num].rate_min + ((cutty.voices[voice_num].rate_max - cutty.voices[voice_num].rate_min) * math.random())
     softcut.rate(voice_num, rnd_rate)
-  elseif cutty.voices[voice_num].rates ~= nil then
-    local rnd_rate = cutty.voices[voice_num].rates[math.random(#cutty.voices[voice_num].rates)]
-    softcut.rate(voice_num, rnd_rate)
+  else
+    softcut.rate(voice_num, cutty.voices[voice_num].rate_min)
   end
   
   softcut.loop(voice_num, 1)
@@ -268,37 +291,57 @@ cutty.cmds["rate"] = function(args)
 
   local voice_num = getArgNum(args[1], "rate")
   if #args == 1 then
-    if cutty.voices[voice_num].rate_min ~= nil and cutty.voices[voice_num].rate_max ~= nil then
-      return "rate "..cutty.voices[voice_num].rate_min.." "..cutty.voices[voice_num].rate_max
-    elseif cutty.voices[voice_num].rates ~= nil then
-      return "rate "..table.concat(cutty.voices[voice_num].rates, ",")
+    if cutty.voices[voice_num].rates ~= nil then
+      return "rate "..table.concat(cutty.voices[voice_num].rates, ",").." "..cutty.voices[voice_num].rate_pattern
     else
-      return "rate "..cutty.voices[voice_num].rate
+      local val = "rate "..cutty.voices[voice_num].rate_min
+      if cutty.voices[voice_num].rate_max ~= nil then
+        val = val.." "..cutty.voices[voice_num].rate_max
+      end
+      return val
     end
-  elseif #args == 3 then
-    -- random between min/max
-    cutty.voices[voice_num].rate_min = getArgNum(args[2], "rate")
-    cutty.voices[voice_num].rate_max = getArgNum(args[3], "rate")
-    cutty.voices[voice_num].rates = nil
-    if cutty.voices[voice_num].rate_max < cutty.voices[voice_num].rate_min then
-      cutty.voices[voice_num].rate_max = cutty.voices[voice_num].rate_min
-    end
-  elseif args[2]:find(",", 1, true) ~= nil then
-    -- random from range
-    cutty.voices[voice_num].rates = {}
-    for v in string.gmatch(args[2], "[^,]+") do
-      local rate = getArgNum(v, "rate")
-      table.insert(cutty.voices[voice_num].rates, rate)
-    end
-    cutty.voices[voice_num].rate_min = nil
-    cutty.voices[voice_num].rate_max = nil
   else
-    local rate = getArgNum(args[2], "rate")
-    cutty.voices[voice_num].rate = rate
+    local a2 = getArgNum(args[2], "rate")
+    
     cutty.voices[voice_num].rates = nil
+    cutty.voices[voice_num].rate_pattern = nil
     cutty.voices[voice_num].rate_min = nil
     cutty.voices[voice_num].rate_max = nil
-    softcut.rate(voice_num, rate)
+    
+    if type(a2) == "number" then
+      -- fixed rate or min rate / max random rate
+      cutty.voices[voice_num].rate_min = a2
+      softcut.rate(voice_num, a2)
+      
+      if #args > 2 then
+        local a3 = getArgNum(args[3], "rate")
+        if type(a3) == "number" then
+          cutty.voices[voice_num].rate_max = a3
+        end
+      end
+      
+    else
+      -- list of rates
+      cutty.voices[voice_num].rates = {}
+      for v in string.gmatch(args[2], "[^,]+") do
+        local rate = getArgNum(v, "rate")
+        table.insert(cutty.voices[voice_num].rates, rate)
+      end
+      
+      -- pattern
+      cutty.voices[voice_num].rate_pattern = "UP"
+      if #args > 2 and (args[3] == "RND" or args[3] == "DN") then
+        cutty.voices[voice_num].rate_pattern = args[3]
+      end
+      
+      if cutty.voices[voice_num].rate_pattern == "DN" then
+        cutty.voices[voice_num].rate_next = #cutty.voices[voice_num].rates
+      else
+        cutty.voices[voice_num].rate_next = 1
+      end
+    end
+    
+    
   end
   
   return okResponse
