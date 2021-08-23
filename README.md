@@ -51,7 +51,7 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [range \<v#\> \<s\> \<e\>](#range)
 
-[rate \<v#\> \<r\>](#rate)
+[rate \<v#\> \<r1\> (r2) (p)](#rate)
 
 [play \<v#\>](#play)
 
@@ -94,9 +94,11 @@ Sets the start and end point (in seconds) of the buffer to use for the specified
 Enter with just a voice to view the current range for that voice.
 
 #### rate
-*rate \<v#\> \<r\>*
+*rate \<v#\> \<r\> (r2) (p)*
 
 Set the rate to play the specified voice (1.0 is default speed, 2.0 is twice speed etc).
+Enter a min and max rate to play at a random rate between the two.
+Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (UP/DN/RND) to play a sequence.
 Enter with just a voice to view the current rate for that voice.
 
 #### play

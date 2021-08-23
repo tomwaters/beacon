@@ -286,7 +286,7 @@ end
 
 cutty.cmds["rate"] = function(args)
   if #args == 0 or args[1] == "help" then
-    return "rate <v#> <r>"
+    return "rate <v#> <r1> (r2) (p)"
   end
 
   local voice_num = getArgNum(args[1], "rate")
