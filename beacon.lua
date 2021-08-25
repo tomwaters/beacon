@@ -1,5 +1,5 @@
 --
--- typey
+-- beacon
 -- a text based sample mangler
 -- @tomw
 -- 
@@ -30,7 +30,7 @@ function init()
 end
 
 function intro()
-  local intro_text = {"Welcome to typey", "use the 'help' command", "if you get lost"}
+  local intro_text = {"Welcome to beacon", "use the 'help' command", "if you get lost"}
 
   if intro_char > #intro_text[intro_line] then
     typey.code("ENTER", 1)
