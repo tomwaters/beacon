@@ -62,6 +62,9 @@ typey.code = function(code, value)
       typey.cmd_cursor_pos = 1
     elseif code == "END" then
       typey.cmd_cursor_pos = #typey.cmd_input + 1   
+    elseif code == "ESC" then
+      typey.cmd_cursor_pos = 1
+      typey.cmd_input = ""
     end
     typey.redraw_callback()
   end

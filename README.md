@@ -53,6 +53,8 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [rate \<v#\> \<r1\> (r2) (p)](#rate)
 
+[rate_slew \<v#\> \<s\>](#rate_slew)
+
 [play \<v#\>](#play)
 
 [stop \<v#\>](#stop)
@@ -63,67 +65,108 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [euc \<v#\> \<p\> \<s\> (o)](#euc)
 
-#### bpm
+[*filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*](#filter)
+
+Use the UP and DOWN arrow keys to scroll through command history.
+
+Use LEFT, RIGHT, HOME and END to move around the current command line.
+
+Use ESC to clear the current command line.
+
+### bpm
 *bpm \<bpm\>*
 
 Sets the norns clock tempo to the specified value.
 Enter the command without a tempo to see the current tempo.
+```
+bpm 120
+```
 
-#### load
+### load
 *load \<file\> (b#)*
 
 Loads the specified file into a buffer (1 or 2).
 If no buffer number is specified the file is loaded as stereo - left channel to buffer 1 and right channel to buffer 2.
+```
+load audio/tehn/whirl1.aif 1
+```
 
-#### voice
+### voice
 *voice \<v#\> \<b#\>*
 
 Sets the specified voice (1 to 6) to use the specified buffer (1 or 2).
 Enter with just a voice to view the current buffer for that voice.
+```
+voice 5 2
+```
 
-#### level
+### level
 *level \<v#\> \<l\>*
 
 Sets the amplitude for the specified voice (1 to 6).
 Enter with just a voice to view the current level for that voice.
+```
+level 1 0.5
+```
 
-#### range
+### range
 *range \<v#\> \<s\> \<e\>*
 
 Sets the start and end point (in seconds) of the buffer to use for the specified voice.
 Enter with just a voice to view the current range for that voice.
+```
+range 1 1.25 2
+```
 
-#### rate
+### rate
 *rate \<v#\> \<r\> (r2) (p)*
 
 Set the rate to play the specified voice (1.0 is default speed, 2.0 is twice speed etc).
 
 Enter a min and max rate to play at a random rate between the two. 
 
-Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (UP/DN/RND) to play a sequence.
+Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (up/dn/rnd) to play a sequence.
 ```
-rate 2
-rate 1 1.5
-rate 0.5,1,1.5 RND
+rate 1 2
+rate 1 0.8 1.5
+rate 1 0.5,1,1.5 rnd
 ```
 Enter with just a voice to view the current rate for that voice.
 
-#### play
+### rate_slew
+*rate_slew \<v#\> \<s\>*
+
+Set the slew time (in seconds) when changing the rate of the specified voice.
+
+```
+rate_slew 1 2
+```
+
+### play
 *play \<v#\>*
 
 Plays the specified voice as a one off.
+```
+play 1
+```
 
-#### stop
+### stop
 *stop \<v#\>*
 
 Stops playing the specified voice
+```
+stop 1
+```
 
-#### loop
+### loop
 *loop \<v#\>*
 
 Loop play the specified voice
+```
+loop 1
+```
 
-#### every
+### every
 *every \<v#\> \<x\> \<b/s\> (n%)*
 
 Play the specified voice every *x* beats (b) or seconds (s).
@@ -135,13 +178,26 @@ every 1 4 b 75%
 ```
 Enter with just a voice to view the current every for that voice.
 
-#### euc
+### euc
 *euc \<v#\> \<p\> \<s\> (o)*
 
 Generates a euclidean rhythm of *p* pulses in *s* steps with an optional *o* offset for use in conjunction with *every* for the specified voice.
-:black_circle::white_circle::white_circle::black_circle::white_circle::white_circle::black_circle::white_circle:
 
 When *every* would normally play the voice, the current step of the euc sequence in checked and if set, the voice plays.
 
 Enter with just a voice to view the current euc settings for that voice.
+```
+euc 1 5 8
+euc 2 12 16 2
+```
 
+### filter
+*filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*
+
+Sets the filter to the specified voice to off, high pass (hp), low pass (lp) or band pass (bp) at the specified frequency with an optional Q factor.
+
+```
+filter 1 lp 15000
+filter 3 bp 2000 1
+filter 6 off 
+```

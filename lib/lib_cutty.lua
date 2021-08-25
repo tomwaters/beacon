@@ -311,7 +311,7 @@ cutty.cmds["loop"] = function(args)
     if args[2] == "off" then
       softcut.loop(voice_num, 0)
     else
-      return cutty.cmds["loop"]({"help"})
+      return get_help("loop")
     end
   else
     softcut.loop(voice_num, 1)
@@ -474,7 +474,7 @@ cutty.cmds["euc"] = function(args)
   
   local voice_num = tonumber(args[1])
   if voice_num == nil then
-    return get_help("every")
+    return get_help("euc")
   end
   
   if #args == 1 then
@@ -492,12 +492,8 @@ cutty.cmds["euc"] = function(args)
       offset = tonumber(args[4])
     end
     
-    if pulses == nil or steps == nil or offset == nil then
-      return get_help("every")
-    end
-
-    if pulses > steps then
-      return cutty.cmds["euc"]({"help"})
+    if pulses == nil or steps == nil or offset == nil or pulses > steps then
+      return get_help("euc")
     end
 
     local pos = 1
@@ -514,7 +510,6 @@ cutty.cmds["euc"] = function(args)
     }
     
     return okResponse
-    
   end
 end
 
@@ -525,7 +520,7 @@ cutty.cmds["filter"] = function(args)
   
   local voice_num = tonumber(args[1])
   if voice_num == nil then
-    return get_help("every")
+    return get_help("filter")
   end
   
   if #args == 1 then
@@ -545,14 +540,14 @@ cutty.cmds["filter"] = function(args)
   else
     local freq = tonumber(args[3])
     if (args[2] ~= "hp" and args[2] ~= "lp" and  args[2] ~= "bp") or freq == nil then
-      return cutty.cmds["filter"]({"help"})
+      return get_help("filter")
     end
     
     local rq = 2
     if #args > 3 then
       rq = tonumber(args[4])
       if rq == nil then
-        return cutty.cmds["filter"]({"help"})
+        return get_help("filter")
       end
     elseif cutty.voices[voice_num].filter ~= nil and cutty.voices[voice_num].filter.rq ~= nil then
       rq = cutty.voices[voice_num].filter.rq
