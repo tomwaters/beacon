@@ -14,7 +14,9 @@ cutty.init = function()
       level = 1.0,
       start_sec = 0,
       end_sec = softcut.BUFFER_SIZE,
-      rate_min = 1.0
+      rate = {
+        min = 1.0
+      }
     }
     softcut.loop_start(i, cutty.voices[i].start_sec)
     softcut.loop_end(i, cutty.voices[i].end_sec)
@@ -24,43 +26,37 @@ end
 
 local okResponse = "ok"
 
--- helper to get number from argument
--- if we can't call help of <cmd>
-function getArgNum(arg, cmd)
-  local argNum = tonumber(arg)
-  if argNum == nil then
-    return cutty.cmds[cmd]({"help"})
-  end
-  return argNum
+function get_help(cmd)
+  return cutty.cmds[cmd]({"help"})
 end
 
 -- helper to play a voice (one shot)
 function play_voice(voice_num)
-  if cutty.voices[voice_num].rates ~= nil then
-    local rate = cutty.voices[voice_num].rates[cutty.voices[voice_num].rate_next]
+  if cutty.voices[voice_num].rate.list ~= nil then
+    local rate = cutty.voices[voice_num].rate.list[cutty.voices[voice_num].rate.next]
     softcut.rate(voice_num, rate)
     
     -- calc next step
-    if cutty.voices[voice_num].rate_pattern == "RND" then
-      cutty.voices[voice_num].rate_next = math.random(#cutty.voices[voice_num].rates)
-    elseif cutty.voices[voice_num].rate_pattern == "UP" then
-      if cutty.voices[voice_num].rate_next == #cutty.voices[voice_num].rates then
-        cutty.voices[voice_num].rate_next = 1
+    if cutty.voices[voice_num].rate.direction == "rnd" then
+      cutty.voices[voice_num].rate.next = math.random(#cutty.voices[voice_num].rate.list)
+    elseif cutty.voices[voice_num].rate.direction == "up" then
+      if cutty.voices[voice_num].rate.next == #cutty.voices[voice_num].rate.list then
+        cutty.voices[voice_num].rate.next = 1
       else
-        cutty.voices[voice_num].rate_next = cutty.voices[voice_num].rate_next + 1
+        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next + 1
       end
-    elseif cutty.voices[voice_num].rate_pattern == "DN" then
-      if cutty.voices[voice_num].rate_next == 1 then
-        cutty.voices[voice_num].rate_next = #cutty.voices[voice_num].rates
+    elseif cutty.voices[voice_num].rate.direction == "dn" then
+      if cutty.voices[voice_num].rate.next == 1 then
+        cutty.voices[voice_num].rate.next = #cutty.voices[voice_num].rate.list
       else
-        cutty.voices[voice_num].rate_next = cutty.voices[voice_num].rate_next - 1
+        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next - 1
       end
     end
-  elseif cutty.voices[voice_num].rate_max ~= nil then
-    local rnd_rate = cutty.voices[voice_num].rate_min + ((cutty.voices[voice_num].rate_max - cutty.voices[voice_num].rate_min) * math.random())
+  elseif cutty.voices[voice_num].rate.max ~= nil then
+    local rnd_rate = cutty.voices[voice_num].rate.min + ((cutty.voices[voice_num].rate.max - cutty.voices[voice_num].rate.min) * math.random())
     softcut.rate(voice_num, rnd_rate)
   else
-    softcut.rate(voice_num, cutty.voices[voice_num].rate_min)
+    softcut.rate(voice_num, cutty.voices[voice_num].rate.min)
   end
   
   softcut.loop(voice_num, 1)
@@ -147,7 +143,11 @@ cutty.cmds["bpm"] = function(args)
   elseif args[1] == "help" then
     return "bpm <bpm>"
   else
-    local new_tempo = getArgNum(args[1], "bpm")
+    local new_tempo = tonumber(args[1])
+    if new_tempo == nil then
+      return get_help("bpm")
+    end
+    
     params:set("clock_tempo", new_tempo)
     return okResponse
   end
@@ -164,7 +164,11 @@ cutty.cmds["load"] = function(args)
     softcut.buffer_clear_channel(2)
     softcut.buffer_read_stereo(file, 0, 0, -1)
   else
-    local buf_num = getArgNum(args[2], "load")
+    local buf_num = tonumber(args[2])
+    if buf_num == nil then
+      return get_help("load")
+    end
+    
     softcut.buffer_clear_channel(buf_num)
     softcut.buffer_read_mono(file, 0, 0, -1, 1, buf_num)
   end
@@ -177,7 +181,11 @@ cutty.cmds["voice"] = function(args)
     return "voice <v#> <b#>"
   end
   
-  local voice_num = getArgNum(args[1], "voice")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("voice")
+  end
+  
   if #args == 1 then
     if cutty.voices[voice_num].buffer == nil then
       return "not set"
@@ -185,7 +193,11 @@ cutty.cmds["voice"] = function(args)
       return "voice "..voice_num.." buffer "..cutty.voices[voice_num].buffer
     end
   else
-    local buf_num = getArgNum(args[2], "voice")
+    local buf_num = tonumber(args[2])
+    if buf_num == nil then
+      return get_help("voice")
+    end
+    
     cutty.voices[voice_num].buffer = buf_num
     
     softcut.enable(voice_num, 1)
@@ -203,11 +215,19 @@ cutty.cmds["level"] = function(args)
     return "level <v#> <l>"
   end
   
-  local voice_num = getArgNum(args[1], "level")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("level")
+  end
+  
   if #args == 1 then
     return "level "..cutty.voices[voice_num].level
   else
-    local new_level = getArgNum(args[2], "voice")
+    local new_level = tonumber(args[2])
+    if new_level == nil then
+      return get_help("level")
+    end
+    
     cutty.voices[voice_num].level = new_level
     softcut.level(voice_num, new_level)
 
@@ -220,12 +240,20 @@ cutty.cmds["range"] = function(args)
     return "range <v#> <s> <e>"
   end
 
-  local voice_num = getArgNum(args[1], "range")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("range")
+  end
+  
   if #args == 1 then
     return "range "..cutty.voices[voice_num].start_sec.." "..cutty.voices[voice_num].end_sec
   else
-    local start_sec = getArgNum(args[2], "range")
-    local end_sec = getArgNum(args[3], "range")
+    local start_sec = tonumber(args[2])
+    local end_sec = tonumber(args[3])
+    if start_sec == nil or end_sec == nil then
+      return get_help("range")
+    end
+    
     cutty.voices[voice_num].start_sec = start_sec
     cutty.voices[voice_num].end_sec = end_sec
     softcut.loop_start(voice_num, cutty.voices[voice_num].start_sec)
@@ -240,7 +268,10 @@ cutty.cmds["play"] = function(args)
     return "play <v#>"
   end
   
-  local voice_num = getArgNum(args[1], "play")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("play")
+  end
   play_voice(voice_num)
     
   return okResponse  
@@ -251,7 +282,10 @@ cutty.cmds["stop"] = function(args)
     return "stop <v#>"
   end
   
-  local voice_num = getArgNum(args[1], "play")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("stop")
+  end
   softcut.play(voice_num, 0)
   
   if cutty.voices[voice_num].every_clock ~= nil then
@@ -268,7 +302,11 @@ cutty.cmds["loop"] = function(args)
     return "loop <v#>"
   end
 
-  local voice_num = getArgNum(args[1], "loop")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("loop")
+  end
+  
   if #args > 1 then
     if args[2] == "off" then
       softcut.loop(voice_num, 0)
@@ -286,65 +324,100 @@ end
 
 cutty.cmds["rate"] = function(args)
   if #args == 0 or args[1] == "help" then
-    return "rate <v#> <r1> (r2) (p)"
+    return "rate <v#> <r>"
   end
 
-  local voice_num = getArgNum(args[1], "rate")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("rate")
+  end
+  
   if #args == 1 then
-    if cutty.voices[voice_num].rates ~= nil then
-      return "rate "..table.concat(cutty.voices[voice_num].rates, ",").." "..cutty.voices[voice_num].rate_pattern
+    if cutty.voices[voice_num].rate.list ~= nil then
+      return "rate "..table.concat(cutty.voices[voice_num].rate.list, ",").." "..cutty.voices[voice_num].rate.direction
     else
-      local val = "rate "..cutty.voices[voice_num].rate_min
-      if cutty.voices[voice_num].rate_max ~= nil then
-        val = val.." "..cutty.voices[voice_num].rate_max
+      local val = "rate "..cutty.voices[voice_num].rate.min
+      if cutty.voices[voice_num].rate.max ~= nil then
+        val = val.." "..cutty.voices[voice_num].rate.max
       end
       return val
     end
   else
-    local a2 = getArgNum(args[2], "rate")
+    cutty.voices[voice_num].rate.list = nil
+    cutty.voices[voice_num].rate.direction = nil
+    cutty.voices[voice_num].rate.min = nil
+    cutty.voices[voice_num].rate.max = nil
     
-    cutty.voices[voice_num].rates = nil
-    cutty.voices[voice_num].rate_pattern = nil
-    cutty.voices[voice_num].rate_min = nil
-    cutty.voices[voice_num].rate_max = nil
-    
-    if type(a2) == "number" then
-      -- fixed rate or min rate / max random rate
-      cutty.voices[voice_num].rate_min = a2
-      softcut.rate(voice_num, a2)
-      
+    local a2 = tonumber(args[2])
+    if a2 ~= nil then
       if #args > 2 then
-        local a3 = getArgNum(args[3], "rate")
-        if type(a3) == "number" then
-          cutty.voices[voice_num].rate_max = a3
+        local a3 = tonumber(args[3])
+        if a3 == nil then 
+          return get_help("rate")
         end
+        cutty.voices[voice_num].rate.max = a3
       end
+      
+      -- fixed rate or min rate / max random rate
+      cutty.voices[voice_num].rate.min = a2
+      softcut.rate(voice_num, a2)
       
     else
       -- list of rates
-      cutty.voices[voice_num].rates = {}
+      cutty.voices[voice_num].rate.list = {}
       for v in string.gmatch(args[2], "[^,]+") do
-        local rate = getArgNum(v, "rate")
-        table.insert(cutty.voices[voice_num].rates, rate)
+        local rate = tonumber(v)
+        if rate == nil then
+          return get_help("rate")
+        end
+        table.insert(cutty.voices[voice_num].rate.list, rate)
       end
       
       -- pattern
-      cutty.voices[voice_num].rate_pattern = "UP"
-      if #args > 2 and (args[3] == "RND" or args[3] == "DN") then
-        cutty.voices[voice_num].rate_pattern = args[3]
+      cutty.voices[voice_num].rate.direction = "up"
+      if #args > 2 and (args[3] == "rnd" or args[3] == "dn") then
+        cutty.voices[voice_num].rate.direction = args[3]
       end
       
-      if cutty.voices[voice_num].rate_pattern == "DN" then
-        cutty.voices[voice_num].rate_next = #cutty.voices[voice_num].rates
+      if cutty.voices[voice_num].rate.direction == "dn" then
+        cutty.voices[voice_num].rate.next = #cutty.voices[voice_num].rate.list
       else
-        cutty.voices[voice_num].rate_next = 1
+        cutty.voices[voice_num].rate.next = 1
       end
     end
-    
     
   end
   
   return okResponse
+end
+
+cutty.cmds["rate_slew"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "rate_slew <v#> <s>"
+  end
+  
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("rate_slew")
+  end
+  
+  if #args == 1 then
+    if cutty.voices[voice_num].rate_slew == nil then
+      return "rate_slew not set"
+    else
+      return "rate_slew "..cutty.voices[voice_num].rate_slew
+    end
+  else
+    local secs = tonumber(args[2])
+    if secs == nil then
+      return get_help("rate_slew")
+    end
+
+    cutty.voices[voice_num].rate_slew = secs
+    softcut.rate_slew_time(voice_num, secs)
+
+    return okResponse
+  end
 end
 
 cutty.cmds["every"] = function(args)
@@ -352,7 +425,11 @@ cutty.cmds["every"] = function(args)
     return "every <v#> <x> <b/s> (n%)"
   end
   
-  local voice_num = getArgNum(args[1], "every")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("every")
+  end
+  
   if #args == 1 then
     if cutty.voices[voice_num].every == nil then
       return "every not set"
@@ -361,18 +438,19 @@ cutty.cmds["every"] = function(args)
     end
       
   else
-    local every = getArgNum(args[2], "every")
+    local every = tonumber(args[2])
     local unit = args[3]
-    if unit ~= "b" and unit ~= "s" then
-      return cutty.cmds["every"]({"help"})
-    end
-    
     local chance = 100
+    
     if #args == 4 then
       local rnd = string.gsub(args[4], "%%", "")
-      chance = getArgNum(rnd, "every")
+      chance = tonumber(rnd)
     end
-    
+
+    if every == nil or (unit ~= "b" and unit ~= "s") or chance == nil then
+      return get_help("every")
+    end
+
     -- cancel existing clock
     if cutty.voices[voice_num].every_clock ~= nil then
       clock.cancel(cutty.voices[voice_num].every_clock)
@@ -394,7 +472,11 @@ cutty.cmds["euc"] = function(args)
     return "euc <v#> <p> <s> (o)"
   end
   
-  local voice_num = getArgNum(args[1], "euc")
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("every")
+  end
+  
   if #args == 1 then
     if cutty.voices[voice_num].euc == nil then
       return "euc not set"
@@ -402,16 +484,20 @@ cutty.cmds["euc"] = function(args)
       return "euc "..cutty.voices[voice_num].euc.pulses.." "..cutty.voices[voice_num].euc.steps.." "..cutty.voices[voice_num].euc.offset
     end
   else
-    local pulses = getArgNum(args[2], "euc")
-    local steps = getArgNum(args[3], "euc")
+    local pulses = tonumber(args[2])
+    local steps = tonumber(args[3])
+    local offset = 0
     
-    if pulses > steps then
-      return cutty.cmds["euc"]({"help"})
+    if #args >= 4 then
+      offset = tonumber(args[4])
     end
     
-    local offset = 0
-    if #args >= 4 then
-      offset = getArgNum(args[4], "euc")
+    if pulses == nil or steps == nil or offset == nil then
+      return get_help("every")
+    end
+
+    if pulses > steps then
+      return cutty.cmds["euc"]({"help"})
     end
 
     local pos = 1
@@ -431,5 +517,74 @@ cutty.cmds["euc"] = function(args)
     
   end
 end
+
+cutty.cmds["filter"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "filter <v#> <off/hp/lp/bp> <f> (q)"
+  end
+  
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("every")
+  end
+  
+  if #args == 1 then
+    if cutty.voices[voice_num].filter == nil then
+      return "filter not set"
+    else
+      return "filter "..cutty.voices[voice_num].filter.type.." "..cutty.voices[voice_num].filter.freq.." "..cutty.voices[voice_num].filter.rq
+    end
+  elseif args[2] == "off" then
+    cutty.voices[voice_num].filter = nil
+    softcut.post_filter_dry(voice_num, 1)
+    softcut.post_filter_lp(voice_num, 0)
+    softcut.post_filter_bp(voice_num, 0)
+    softcut.post_filter_hp(voice_num, 0)
+    softcut.post_filter_rq(voice_num, 2)
+    softcut.post_filter_fc(voice_num, 12000)
+  else
+    local freq = tonumber(args[3])
+    if (args[2] ~= "hp" and args[2] ~= "lp" and  args[2] ~= "bp") or freq == nil then
+      return cutty.cmds["filter"]({"help"})
+    end
+    
+    local rq = 2
+    if #args > 3 then
+      rq = tonumber(args[4])
+      if rq == nil then
+        return cutty.cmds["filter"]({"help"})
+      end
+    elseif cutty.voices[voice_num].filter ~= nil and cutty.voices[voice_num].filter.rq ~= nil then
+      rq = cutty.voices[voice_num].filter.rq
+    end
+      
+    cutty.voices[voice_num].filter = {
+      type = args[2],
+      freq = freq,
+      rq = rq
+    }
+    
+    softcut.post_filter_dry(voice_num, 0)
+    softcut.post_filter_fc(voice_num, freq)
+    softcut.post_filter_rq(voice_num, rq)
+    
+    if args[2] == "hp" then
+      softcut.post_filter_hp(voice_num, 1)
+      softcut.post_filter_lp(voice_num, 0)
+      softcut.post_filter_bp(voice_num, 0)
+    elseif args[2] == "lp" then
+      softcut.post_filter_lp(voice_num, 1)
+      softcut.post_filter_bp(voice_num, 0)
+      softcut.post_filter_hp(voice_num, 0)
+    elseif args[2] == "bp" then
+      softcut.post_filter_bp(voice_num, 1)
+      softcut.post_filter_lp(voice_num, 0)
+      softcut.post_filter_hp(voice_num, 0)
+    end
+  end
+  
+  return okResponse
+end
+
 
 return cutty

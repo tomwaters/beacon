@@ -24,8 +24,7 @@ function init()
   redraw_metro.event = metro_redraw
   redraw_metro:start(1 / 30)
 
-  intro_line = 1
-  intro_char = 1
+  intro_line, intro_char = 1, 1
   intro_metro.event = intro
   intro_metro:start(0.125)
 end
