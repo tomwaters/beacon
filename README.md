@@ -1,6 +1,6 @@
-# typey
+# beacon
 ***
-typey is a norns script for sample mangling by entering commands using a computer keyboard.
+beacon is a norns script for sample mangling by entering commands using a computer keyboard.
 
 #### Requirements
 - [x] norns
