@@ -27,7 +27,7 @@ You can use the up and down arrows to move through the history of commands you h
 The **help** command will list all available commands.
 A command followed by *help* will give help about that command e.g.
 ```
-help load
+load help
 ```
 Commands that require a *voice* parameter will generally give the current settings by entering the command with just the voice number e.g.
 ```
