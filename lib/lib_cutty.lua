@@ -22,6 +22,7 @@ cutty.init = function()
     softcut.loop_end(i, cutty.voices[i].end_sec)
   end
   math.randomseed(os.time())
+  audio.level_adc_cut(1)
 end
 
 local okResponse = "ok"
@@ -174,6 +175,34 @@ cutty.cmds["load"] = function(args)
   end
   
   return okResponse
+end
+
+cutty.cmds["rec"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "rec <v#>"
+  end
+
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("rec")
+  end
+  
+  if cutty.voices[voice_num].rec_start == nil then
+    cutty.voices[voice_num].rec_start = util.time()
+    softcut.position(voice_num, cutty.voices[voice_num].start_sec)
+    softcut.level_input_cut(1, voice_num, 1.0)
+    softcut.level_input_cut(2, voice_num, 1.0)
+    softcut.rec_level(voice_num, 1.0)
+    softcut.pre_level(voice_num, 0.0)
+    softcut.rec(voice_num, 1)
+    return "recording"
+  else
+    softcut.rec(voice_num, 0)
+    cutty.voices[voice_num].end_sec = cutty.voices[voice_num].start_sec + (util.time() - cutty.voices[voice_num].rec_start)
+    cutty.voices[voice_num].rec_start = nil
+    return "stopped"
+  end
+
 end
 
 cutty.cmds["voice"] = function(args)

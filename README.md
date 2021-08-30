@@ -45,6 +45,8 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [load \<file\> (b#)](#load)
 
+[rec \<v#\>](#rec)
+
 [voice \<v#\> \<b#\>](#voice)
 
 [level \<v#\> \<l\>](#level)
@@ -89,6 +91,16 @@ Loads the specified file into a buffer (1 or 2).
 If no buffer number is specified the file is loaded as stereo - left channel to buffer 1 and right channel to buffer 2.
 ```
 load audio/tehn/whirl1.aif 1
+```
+
+### rec
+*rec \<v#\>*
+
+Toggles recording for the specified voice's buffer from the audio input.
+Recording starts at the voice start point and the voice end point is changed to the end of the recording when recording is stopped.
+*note:* if other voices are using the same area of the buffer it will be overwritten for them too and they will start playing the recording.
+```
+rec 1
 ```
 
 ### voice
