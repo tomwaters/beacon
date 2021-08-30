@@ -88,6 +88,7 @@ bpm 120
 *load \<file\> (b#)*
 
 Loads the specified file into a buffer (1 or 2).
+
 If no buffer number is specified the file is loaded as stereo - left channel to buffer 1 and right channel to buffer 2.
 ```
 load audio/tehn/whirl1.aif 1
@@ -97,7 +98,9 @@ load audio/tehn/whirl1.aif 1
 *rec \<v#\>*
 
 Toggles recording for the specified voice's buffer from the audio input.
+
 Recording starts at the voice start point and the voice end point is changed to the end of the recording when recording is stopped.
+
 *note:* if other voices are using the same area of the buffer it will be overwritten for them too and they will start playing the recording.
 ```
 rec 1
@@ -107,6 +110,7 @@ rec 1
 *voice \<v#\> \<b#\>*
 
 Sets the specified voice (1 to 6) to use the specified buffer (1 or 2).
+
 Enter with just a voice to view the current buffer for that voice.
 ```
 voice 5 2
@@ -116,6 +120,7 @@ voice 5 2
 *level \<v#\> \<l\>*
 
 Sets the amplitude for the specified voice (1 to 6).
+
 Enter with just a voice to view the current level for that voice.
 ```
 level 1 0.5
@@ -125,6 +130,7 @@ level 1 0.5
 *range \<v#\> \<s\> \<e\>*
 
 Sets the start and end point (in seconds) of the buffer to use for the specified voice.
+
 Enter with just a voice to view the current range for that voice.
 ```
 range 1 1.25 2
@@ -182,6 +188,7 @@ loop 1
 *every \<v#\> \<x\> \<b/s\> (n%)*
 
 Play the specified voice every *x* beats (b) or seconds (s).
+
 The optional n parameter specified the chance of the sound playing.
 ```
 every 1 1 b
