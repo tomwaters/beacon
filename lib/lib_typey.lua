@@ -14,6 +14,7 @@ typey.init = function(cmd_callback, redraw_callback)
   typey.cmd_history = {}
   typey.cmd_history_idx = 0
 
+  typey.suggest_idx = 1
 end
 
 typey.add_command_history = function(command)
@@ -27,26 +28,94 @@ end
 typey.char = function(character)
   typey.cmd_input = typey.cmd_input:sub(1, typey.cmd_cursor_pos - 1) .. character .. typey.cmd_input:sub(typey.cmd_cursor_pos)
   typey.cmd_cursor_pos = typey.cmd_cursor_pos + 1
+  typey.suggest_reset()
   typey.redraw_callback()
 end
+
+typey.suggest_reset = function() 
+  typey.suggest_search = nil
+  typey.suggest_idx = 1
+end
+
+-- tab suggest for file path
+typey.suggest = function()
+  if typey.suggest_search == nil then
+    typey.suggest_search = string.match(typey.cmd_input, " ([^ ]+)$") or ""
+  end
+
+  local search_path = _path.dust
+  local left_path = string.match(typey.suggest_search, "^(.+[//])")
+  local left_length = 0
+  if left_path ~= nil then
+    search_path = search_path..left_path
+    left_length = #left_path
+  else
+    left_path = ""
+  end
+  
+  if util.file_exists(search_path) then
+    local list = util.scandir(search_path)
+    local search_term = string.sub(typey.suggest_search, left_length + 1)
+    
+    local matches = 0
+    local back_to_start = true
+    for _,f in ipairs(list) do
+      if util.string_starts(f, search_term) then
+        matches = matches + 1
+        if matches == typey.suggest_idx then
+          -- if f ends / then strip the / to tab through matching folders
+          if string.sub(f, #f) == "/" then
+            f = string.sub(f, 1, #f - 1)
+          end
+          
+          local cmd_last_param = string.match(typey.cmd_input, " ([^ ]+)$")
+          local clp_len = 0
+          if cmd_last_param ~= nil then
+            clp_len = #cmd_last_param
+          end
+          
+          typey.cmd_input = string.sub(typey.cmd_input, 1, #typey.cmd_input - clp_len)..left_path..f
+          typey.cmd_cursor_pos = #typey.cmd_input + 1
+          
+        elseif matches > typey.suggest_idx then
+          back_to_start = false
+        end
+      end
+    end
+    
+    -- if there were no more matches
+    -- reset idx so we go back to the first match on next tab
+    if back_to_start then
+      typey.suggest_idx = 1
+    else
+      typey.suggest_idx = typey.suggest_idx + 1
+    end
+    
+  end
+end
+
 
 typey.code = function(code, value)
   if value == 1 or value == 2 then
     if code == "BACKSPACE" then
+      typey.suggest_reset()
       typey.cmd_input = typey.cmd_input:sub(1, typey.cmd_cursor_pos - 2)..typey.cmd_input:sub(typey.cmd_cursor_pos)
       if #typey.cmd_input > 0 then
         typey.cmd_cursor_pos = typey.cmd_cursor_pos - 1
       end
     elseif code == "ENTER" then
+      typey.suggest_reset()
       typey.add_command_history(typey.cmd_input)
       typey.cmd_callback(typey.cmd_input)
       typey.cmd_input = ""
       typey.cmd_cursor_pos = 1
     elseif code == "UP" and typey.cmd_history_idx > 1 then
+      typey.suggest_reset()      
       typey.cmd_history_idx = typey.cmd_history_idx - 1
       typey.cmd_input = typey.cmd_history[typey.cmd_history_idx]
       typey.cmd_cursor_pos = #typey.cmd_input + 1
     elseif code == "DOWN" and typey.cmd_history_idx <= #typey.cmd_history then
+      typey.suggest_reset()      
       typey.cmd_history_idx = typey.cmd_history_idx + 1
       if typey.cmd_history_idx <= #typey.cmd_history then
         typey.cmd_input = typey.cmd_history[typey.cmd_history_idx]
@@ -63,8 +132,11 @@ typey.code = function(code, value)
     elseif code == "END" then
       typey.cmd_cursor_pos = #typey.cmd_input + 1   
     elseif code == "ESC" then
+      typey.suggest_reset()
       typey.cmd_cursor_pos = 1
       typey.cmd_input = ""
+    elseif code == "TAB" then
+      typey.suggest()
     end
     typey.redraw_callback()
   end
