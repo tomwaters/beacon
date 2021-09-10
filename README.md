@@ -41,15 +41,17 @@ bpm
 ## Commands
 Parameters in \< \> are required, those in ( ) are optional.
 
-[bpm \<bpm\>](#bpm)
+[bpm \<bpm\ (s)>](#bpm)
 
-[load \<file\> (b#)](#load)
+[load \<file\> (b#) (s)](#load)
 
 [rec \<v#\>](#rec)
 
 [voice \<v#\> \<b#\>](#voice)
 
 [level \<v#\> \<l\>](#level)
+
+[*pan \<v#\> \<p\>*](#pan)
 
 [range \<v#\> \<s\> \<e\>](#range)
 
@@ -69,29 +71,44 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [*filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*](#filter)
 
+[*lfo \<l#\> \<v#\> \<p\> \<f\> (a)*](#lfo)
+
 Use the UP and DOWN arrow keys to scroll through command history.
 
 Use LEFT, RIGHT, HOME and END to move around the current command line.
 
 Use ESC to clear the current command line.
 
+Press an F key to store the current command text to that key. Press an F key on an empty line to recall stored text.
+
+Multiple commands can be entered on a single line separated with a semicolon (e.g. rate 1;every 1 2 b)
+
 ### bpm
-*bpm \<bpm\>*
+*bpm \<bpm\> (s)*
 
 Sets the norns clock tempo to the specified value.
+
+Optionally set the number of seconds to change the tempo over.
+
 Enter the command without a tempo to see the current tempo.
 ```
 bpm 120
+bpm 80 15
 ```
 
 ### load
-*load \<file\> (b#)*
+*load \<file\> (b#) (s)*
 
 Loads the specified file into a buffer (1 or 2).
 
 If no buffer number is specified the file is loaded as stereo - left channel to buffer 1 and right channel to buffer 2.
+
+If a buffer is specified, the start point in the buffer (in seconds) to load the sample into can be specified. This allows multiple samples to be loaded into a buffer to be used in different voices e.g. a kick drum in buffer 1 at 0 seconds assigned to voice 1 and a snare in buffer 1 and 5 seconds assigned to voice 2. Loading a sample into a buffer will clear everything in the buffer after the start point.
+
+Use the TAB key to auto-complete the file path.
 ```
 load audio/tehn/whirl1.aif 1
+load audio/common/606/606-SD.wav 1 5
 ```
 
 ### rec
@@ -126,6 +143,16 @@ Enter with just a voice to view the current level for that voice.
 level 1 0.5
 ```
 
+### pan
+*pan \<v#\> \<p\>*
+
+Pan the specified voice from -1.0 (full left) to 1.0 (full right)
+
+Enter with just a voice to view the current pan for that voice.
+```
+pan 1 -0.5
+```
+
 ### range
 *range \<v#\> \<s\> \<e\>*
 
@@ -144,18 +171,21 @@ Set the rate to play the specified voice (1.0 is default speed, 2.0 is twice spe
 Enter a min and max rate to play at a random rate between the two. 
 
 Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (up/dn/rnd) to play a sequence.
+
+Specify a negative rate to play backwards.
+
+Enter with just a voice to view the current rate for that voice.
 ```
 rate 1 2
 rate 1 0.8 1.5
 rate 1 0.5,1,1.5 rnd
+rate 1 -2,-2.4,-2.6 dn
 ```
-Enter with just a voice to view the current rate for that voice.
 
 ### rate_slew
 *rate_slew \<v#\> \<s\>*
 
 Set the slew time (in seconds) when changing the rate of the specified voice.
-
 ```
 rate_slew 1 2
 ```
@@ -214,9 +244,26 @@ euc 2 12 16 2
 *filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*
 
 Sets the filter to the specified voice to off, high pass (hp), low pass (lp) or band pass (bp) at the specified frequency with an optional Q factor.
-
 ```
 filter 1 lp 15000
 filter 3 bp 2000 1
 filter 6 off 
+```
+
+### lfo
+*lfo \<l#\> \<v#\> \<p\> \<f\> (a)*
+
+Applies an lfo (l#) to a parameter (p) on a voice (v#) at the specified frequency (f) with an optional amount (a).
+
+Parameters are:
+- filter - current value +/- 5000
+- pan - current value +/- 1
+- rate - current value +/- 1
+- level - current value +/- 1
+
+An amount of 1 gives the full range specified above, an amount of 0.5 would give half of the range.
+
+```
+lfo 1 3 level 2
+lfo 2 5 pan 4 0.5
 ```

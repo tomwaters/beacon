@@ -15,6 +15,13 @@ typey.init = function(cmd_callback, redraw_callback)
   typey.cmd_history_idx = 0
 
   typey.suggest_idx = 1
+  typey.suggest_file = {}
+  
+  typey.macros = {}
+  for i=1, 12 do
+    typey.macros["F"..i] = ""
+  end
+  
 end
 
 typey.add_command_history = function(command)
@@ -32,6 +39,13 @@ typey.char = function(character)
   typey.redraw_callback()
 end
 
+typey.add_suggest_file = function(param, property)
+  table.insert(typey.suggest_file, {
+    param = param,
+    property = property
+  })
+end
+
 typey.suggest_reset = function() 
   typey.suggest_search = nil
   typey.suggest_idx = 1
@@ -39,6 +53,29 @@ end
 
 -- tab suggest for file path
 typey.suggest = function()
+  -- check if we should suggest a file
+  local i = string.find(typey.cmd_input, " ")
+  if i == nil then
+    i = 0
+  end
+  
+  local param = string.sub(typey.cmd_input, 1, i - 1)
+  local found = false
+  for _, p in pairs(typey.suggest_file) do
+    if p.param == param then
+      local _, n = string.gsub(typey.cmd_input, " ", "")
+      if p.property == n then
+        found = true
+        break
+      end
+    end
+  end
+  
+  if not found then
+    return
+  end
+  
+  -- do the suggest
   if typey.suggest_search == nil then
     typey.suggest_search = string.match(typey.cmd_input, " ([^ ]+)$") or ""
   end
@@ -137,6 +174,14 @@ typey.code = function(code, value)
       typey.cmd_input = ""
     elseif code == "TAB" then
       typey.suggest()
+    elseif typey.macros[code] ~= nil then
+      if typey.cmd_input ~= "" then
+        typey.macros[code] = typey.cmd_input
+      elseif typey.cmd_input == "" and typey.macros[code] ~= "" then
+        typey.cmd_input = typey.macros[code]
+        typey.cmd_cursor_pos = #typey.cmd_input + 1
+      end
+      
     end
     typey.redraw_callback()
   end

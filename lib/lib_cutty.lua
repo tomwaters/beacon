@@ -4,97 +4,33 @@
 
 er = require("er")
 
+local two_pi = math.pi * 2
+local okResponse = "ok"
+
 cutty = {}
 cutty.voices = {}
 cutty.cmds = {}
+cutty.lfos = {}
+cutty.lfo_types = {"filter", "rate", "level", "pan"}
 
 cutty.init = function()
   for i=1, softcut.VOICE_COUNT do
     cutty.voices[i] = {
       level = 1.0,
+      pan = 0,
       start_sec = 0,
       end_sec = softcut.BUFFER_SIZE,
       rate = {
+        current = 1,
         min = 1.0
       }
     }
     softcut.loop_start(i, cutty.voices[i].start_sec)
     softcut.loop_end(i, cutty.voices[i].end_sec)
   end
+  
   math.randomseed(os.time())
   audio.level_adc_cut(1)
-end
-
-local okResponse = "ok"
-
-function get_help(cmd)
-  return cutty.cmds[cmd]({"help"})
-end
-
--- helper to play a voice (one shot)
-function play_voice(voice_num)
-  if cutty.voices[voice_num].rate.list ~= nil then
-    local rate = cutty.voices[voice_num].rate.list[cutty.voices[voice_num].rate.next]
-    softcut.rate(voice_num, rate)
-    
-    -- calc next step
-    if cutty.voices[voice_num].rate.direction == "rnd" then
-      cutty.voices[voice_num].rate.next = math.random(#cutty.voices[voice_num].rate.list)
-    elseif cutty.voices[voice_num].rate.direction == "up" then
-      if cutty.voices[voice_num].rate.next == #cutty.voices[voice_num].rate.list then
-        cutty.voices[voice_num].rate.next = 1
-      else
-        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next + 1
-      end
-    elseif cutty.voices[voice_num].rate.direction == "dn" then
-      if cutty.voices[voice_num].rate.next == 1 then
-        cutty.voices[voice_num].rate.next = #cutty.voices[voice_num].rate.list
-      else
-        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next - 1
-      end
-    end
-  elseif cutty.voices[voice_num].rate.max ~= nil then
-    local rnd_rate = cutty.voices[voice_num].rate.min + ((cutty.voices[voice_num].rate.max - cutty.voices[voice_num].rate.min) * math.random())
-    softcut.rate(voice_num, rnd_rate)
-  else
-    softcut.rate(voice_num, cutty.voices[voice_num].rate.min)
-  end
-  
-  softcut.loop(voice_num, 1)
-  softcut.position(voice_num, cutty.voices[voice_num].start_sec)
-  softcut.play(voice_num, 1)
-  softcut.loop(voice_num, 0)
-end
-
--- helper to trigger voice at regullar interval
-function every_handler(voice_num)
-  while true do
-    local every = cutty.voices[voice_num].every
-    local euc = cutty.voices[voice_num].euc
-    
-    if every.unit == "b" then
-      clock.sync(every.every)
-    end
-
-    if math.random() <= every.chance / 100 then
-      local do_play = true
-      if euc ~= nil then
-        if euc.pos > #euc.pattern then
-          euc.pos = 1
-        end
-        do_play = euc.pattern[euc.pos]
-        euc.pos = euc.pos + 1
-      end
-      
-      if do_play then
-        play_voice(voice_num)
-      end
-    end
-    
-    if every.unit == "s" then
-      clock.sleep(every.every)
-    end
-  end
 end
 
 -- process a command string
@@ -127,6 +63,126 @@ cutty.process = function(cmd)
   return cutty.cmds[c](args)
 end
 
+function get_help(cmd)
+  return cutty.cmds[cmd]({"help"})
+end
+
+function supported_lfo(type)
+  for _,t in pairs(cutty.lfo_types) do
+    if t == type then 
+      return true
+    end
+  end
+  return false
+end
+
+-- helper to play a voice (one shot)
+function play_voice(voice_num)
+  if cutty.voices[voice_num].rate.list ~= nil then
+    cutty.voices[voice_num].rate.current = cutty.voices[voice_num].rate.list[cutty.voices[voice_num].rate.next]
+    
+    -- calc next step
+    if cutty.voices[voice_num].rate.direction == "rnd" then
+      cutty.voices[voice_num].rate.next = math.random(#cutty.voices[voice_num].rate.list)
+    elseif cutty.voices[voice_num].rate.direction == "up" then
+      if cutty.voices[voice_num].rate.next == #cutty.voices[voice_num].rate.list then
+        cutty.voices[voice_num].rate.next = 1
+      else
+        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next + 1
+      end
+    elseif cutty.voices[voice_num].rate.direction == "dn" then
+      if cutty.voices[voice_num].rate.next == 1 then
+        cutty.voices[voice_num].rate.next = #cutty.voices[voice_num].rate.list
+      else
+        cutty.voices[voice_num].rate.next = cutty.voices[voice_num].rate.next - 1
+      end
+    end
+  elseif cutty.voices[voice_num].rate.max ~= nil then
+    cutty.voices[voice_num].rate.current = cutty.voices[voice_num].rate.min + ((cutty.voices[voice_num].rate.max - cutty.voices[voice_num].rate.min) * math.random())
+  else
+    cutty.voices[voice_num].rate.current = cutty.voices[voice_num].rate.min
+  end
+
+  -- set current rate
+  softcut.rate(voice_num, cutty.voices[voice_num].rate.current)
+
+  -- handle negative rate to play backwards
+  if cutty.voices[voice_num].rate.current < 0 then   
+    softcut.position(voice_num, cutty.voices[voice_num].end_sec)
+  else
+    softcut.position(voice_num, cutty.voices[voice_num].start_sec)
+  end
+  
+  softcut.loop(voice_num, 1)
+  softcut.play(voice_num, 1)
+  softcut.loop(voice_num, 0)
+end
+
+-- helper to trigger voice at regular interval
+function every_handler(voice_num)
+  while true do
+    local every = cutty.voices[voice_num].every
+    local euc = cutty.voices[voice_num].euc
+    
+    if every.unit == "b" then
+      clock.sync(every.every)
+    end
+
+    if math.random() <= every.chance / 100 then
+      local do_play = true
+      if euc ~= nil then
+        if euc.pos > #euc.pattern then
+          euc.pos = 1
+        end
+        do_play = euc.pattern[euc.pos]
+        euc.pos = euc.pos + 1
+      end
+      
+      if do_play then
+        play_voice(voice_num)
+      end
+    end
+    
+    if every.unit == "s" then
+      clock.sleep(every.every)
+    end
+  end
+end
+
+-- helper to run lfo
+function lfo_handler(lfo_num)
+  local lfo = cutty.lfos[lfo_num]
+  
+  while true do
+    local n = math.sin((util.time() * two_pi) * lfo.freq)
+    
+    if lfo.param == "filter" then
+      -- freq goes current value +- 5k
+      n = ((n * 10000) - 5000)  * lfo.amount
+      local freq = cutty.voices[lfo.voice].filter.freq
+      softcut.post_filter_fc(lfo.voice, freq + n)
+    elseif lfo.param == "rate" then
+      -- rate goes current value +- 1.0
+      n = ((n * 2) - 1) * lfo.amount
+      local rate = cutty.voices[lfo.voice].rate.current
+      softcut.rate(lfo.voice, rate + n)
+    elseif lfo.param == "level" then
+      -- level goes current value +- 1.0
+      n = ((n * 2) - 1)  * lfo.amount
+      local level = cutty.voices[lfo.voice].level
+      softcut.level(lfo.voice, level + n)
+    elseif lfo.param == "pan" then
+      -- pan goes current value +- 1.0
+      n = ((n * 2) - 1) * lfo.amount
+      local pan = cutty.voices[lfo.voice].pan
+      softcut.pan(lfo.voice, pan + n)
+    end
+    
+    clock.sleep(0.01)
+  end
+  
+end
+
 -- get a list of commands for help
 cutty.cmds["help"] = function(args)
   local out = "CMDs: "
@@ -142,21 +198,56 @@ cutty.cmds["bpm"] = function(args)
   if #args == 0 then
     return "bpm "..params:get("clock_tempo")
   elseif args[1] == "help" then
-    return "bpm <bpm>"
+    return "bpm <bpm> (s)"
   else
     local new_tempo = tonumber(args[1])
     if new_tempo == nil then
       return get_help("bpm")
     end
     
-    params:set("clock_tempo", new_tempo)
+    if cutty.bpm_clock ~= nil then
+        clock.cancel(cutty.bpm_clock)
+    end
+    
+    -- if change bpm over s seconds...
+    if #args > 1 then
+      local secs = tonumber(args[2])
+      if secs == nil then
+        return get_help("bpm")
+      end
+
+      cutty.bpm_dir = params:get("clock_tempo") < new_tempo and "up" or "down"
+      cutty.bpm_end = util.time() + secs
+      cutty.bpm_clock = clock.run(
+        function()
+          local done = false
+          while not done do
+            local cur_tempo = params:get("clock_tempo")
+            local n = ((new_tempo - cur_tempo) / (cutty.bpm_end - util.time())) * 0.1
+            params:set("clock_tempo", cur_tempo + n)
+            
+            -- stop if reached target
+            if (cutty.bpm_dir == "up" and cur_tempo + n >= new_tempo) or (cutty.bpm_dir == "down" and cur_tempo + n <= new_tempo) then
+              params:set("clock_tempo", new_tempo)
+              done = true
+            end
+            
+            clock.sleep(0.1)
+          end
+        end
+      )
+      
+    else
+      params:set("clock_tempo", new_tempo)
+    end
+    
     return okResponse
   end
 end
 
 cutty.cmds["load"] = function(args)
   if #args == 0 or args[1] == "help" then
-    return "load <file> (b#)"
+    return "load <file> (b#) (s)"
   end
 
   local file = _path.dust..args[1]
@@ -166,12 +257,18 @@ cutty.cmds["load"] = function(args)
     softcut.buffer_read_stereo(file, 0, 0, -1)
   else
     local buf_num = tonumber(args[2])
-    if buf_num == nil then
+    local start = 0
+    
+    if #args > 2 then
+      start = tonumber(args[3])
+    end
+    
+    if buf_num == nil or start == nil then
       return get_help("load")
     end
     
-    softcut.buffer_clear_channel(buf_num)
-    softcut.buffer_read_mono(file, 0, 0, -1, 1, buf_num)
+    softcut.buffer_clear_region_channel(buf_num, start, softcut.BUFFER_SIZE, 0, 0)
+    softcut.buffer_read_mono(file, 0, start, -1, 1, buf_num)
   end
   
   return okResponse
@@ -259,6 +356,31 @@ cutty.cmds["level"] = function(args)
     
     cutty.voices[voice_num].level = new_level
     softcut.level(voice_num, new_level)
+
+    return okResponse
+  end
+end
+
+cutty.cmds["pan"] = function(args)
+  if #args < 1 or args[1] == "help" then
+    return "pan <v#> <p>"
+  end
+  
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("pan")
+  end
+  
+  if #args == 1 then
+    return "pan "..cutty.voices[voice_num].pan
+  else
+    local new_pan = tonumber(args[2])
+    if new_pan == nil then
+      return get_help("pan")
+    end
+    
+    cutty.voices[voice_num].pan = new_pan
+    softcut.pan(voice_num, new_pan)
 
     return okResponse
   end
@@ -610,5 +732,65 @@ cutty.cmds["filter"] = function(args)
   return okResponse
 end
 
+cutty.cmds["lfo"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "lfo <l#> <v#/off> <p> <f> (a)"
+  end
+
+  local lfo_num = tonumber(args[1])
+  if lfo_num == nil then
+    return get_help("lfo")
+  end
+
+  if #args == 1 then
+    if cutty.lfos[lfo_num] == nil then
+      return "lfo not set"
+    else
+      return "lfo voice "..cutty.lfos[lfo_num].voice.." "..cutty.lfos[lfo_num].param.." "..cutty.lfos[lfo_num].freq.."hz "..cutty.lfos[lfo_num].amount
+    end
+  else
+    local lfo = {
+      voice = tonumber(args[2]),
+      param = args[3],
+      freq = tonumber(args[4]),
+      amount = 1
+    }
+    
+    if args[2] ~= "off" and lfo.voice == nil then
+      return get_help("lfo")
+    end
+    
+    -- if not stop do more checks
+    if #args > 2 then
+      
+      if #args > 4 then
+        lfo.amount = tonumber(args[5])
+      end
+      
+      if not supported_lfo(lfo.param) or lfo.freq == nil or lfo.amount == nil then
+        return get_help("lfo")
+      end
+      
+      if lfo.param == "filter" and cutty.voices[lfo.voice].filter == nil then
+        return "filter not set for voice "..lfo.voice
+      end
+    end
+    
+    -- cancel current lfo
+    if cutty.lfos[lfo_num] ~= nil and cutty.lfos[lfo_num].clock ~= nil then
+      clock.cancel(cutty.lfos[lfo_num].clock)
+    end
+    
+    -- start a new lfo
+    if #args > 2 then
+      cutty.lfos[lfo_num] = lfo
+      cutty.lfos[lfo_num].clock = clock.run(lfo_handler, lfo_num)
+    else
+      cutty.lfos[lfo_num] = nil
+    end
+  end
+
+  return okResponse  
+end
 
 return cutty

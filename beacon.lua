@@ -18,6 +18,7 @@ local intro_char = nil
 
 function init()
   typey.init(cmd_handler, redraw_handler)
+  typey.add_suggest_file("load", 1)
   cutty.init()
   
   redraw()
@@ -50,8 +51,11 @@ end
 function cmd_handler(cmd)
   add_output("> "..cmd)
   if intro_line == nil then
-    local result = cutty.process(cmd)
-    add_output(result)
+    -- split command string by semicolon
+    for c in string.gmatch(cmd, "[^;]+") do
+      local result = cutty.process(c)
+      add_output(result)
+    end
     redraw()
   end
 end
