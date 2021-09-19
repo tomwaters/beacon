@@ -3,6 +3,7 @@
 --
 
 er = require("er")
+s = require("sequins")
 
 local two_pi = math.pi * 2
 local okResponse = "ok"
@@ -78,7 +79,9 @@ end
 
 -- helper to play a voice (one shot)
 function play_voice(voice_num)
-  if cutty.voices[voice_num].rate.list ~= nil then
+  if cutty.voices[voice_num].rate.seq ~= nil then
+    cutty.voices[voice_num].rate.current = cutty.voices[voice_num].rate.seq()
+  elseif cutty.voices[voice_num].rate.list ~= nil then
     cutty.voices[voice_num].rate.current = cutty.voices[voice_num].rate.list[cutty.voices[voice_num].rate.next]
     
     -- calc next step
@@ -182,6 +185,26 @@ function lfo_handler(lfo_num)
   end
   
 end
+
+function print_sequin(s)
+  local o = "s{"
+  for _, n in pairs(s.data) do
+    if type(n) == "table" then
+      o = o..print_sequin(n)
+    else
+      o = o..tostring(n)
+    end
+    
+    if next(s.data, _) ~= nil then
+      o = o..","
+    end
+
+  end
+  o = o.."}"
+  
+  return o
+end
+
 
 -- get a list of commands for help
 cutty.cmds["help"] = function(args)
@@ -475,7 +498,7 @@ end
 
 cutty.cmds["rate"] = function(args)
   if #args == 0 or args[1] == "help" then
-    return "rate <v#> <r>"
+    return "rate <v#> <r1> (r2) (p)"
   end
 
   local voice_num = tonumber(args[1])
@@ -484,7 +507,9 @@ cutty.cmds["rate"] = function(args)
   end
   
   if #args == 1 then
-    if cutty.voices[voice_num].rate.list ~= nil then
+    if cutty.voices[voice_num].rate.seq ~= nil then
+      return "rate "..print_sequin(cutty.voices[voice_num].rate.seq)
+    elseif cutty.voices[voice_num].rate.list ~= nil then
       return "rate "..table.concat(cutty.voices[voice_num].rate.list, ",").." "..cutty.voices[voice_num].rate.direction
     else
       local val = "rate "..cutty.voices[voice_num].rate.min
@@ -498,6 +523,7 @@ cutty.cmds["rate"] = function(args)
     cutty.voices[voice_num].rate.direction = nil
     cutty.voices[voice_num].rate.min = nil
     cutty.voices[voice_num].rate.max = nil
+    cutty.voices[voice_num].rate.seq = nil
     
     local a2 = tonumber(args[2])
     if a2 ~= nil then
@@ -512,7 +538,19 @@ cutty.cmds["rate"] = function(args)
       -- fixed rate or min rate / max random rate
       cutty.voices[voice_num].rate.min = a2
       softcut.rate(voice_num, a2)
-      
+    elseif args[2]:sub(1, 1) == 's' then
+      local loaded_seq = load("return "..args[2])
+      if loaded_seq then
+        local ok, seq = pcall(loaded_seq)
+        if ok then
+          cutty.voices[voice_num].rate.seq = seq
+        else
+          return get_help("rate")
+        end
+      else
+        return get_help("rate")
+      end
+
     else
       -- list of rates
       cutty.voices[voice_num].rate.list = {}

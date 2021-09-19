@@ -41,7 +41,7 @@ bpm
 ## Commands
 Parameters in \< \> are required, those in ( ) are optional.
 
-[bpm \<bpm\ (s)>](#bpm)
+[bpm \<bpm\> (s)](#bpm)
 
 [load \<file\> (b#) (s)](#load)
 
@@ -172,6 +172,8 @@ Enter a min and max rate to play at a random rate between the two.
 
 Enter a comma separated list of rates (e.g. 1,1.2,2) followed by a pattern (up/dn/rnd) to play a sequence.
 
+You can also specify rates as a [sequins](https://monome.org/docs/crow/reference/#sequins) sequence (without and spaces).
+
 Specify a negative rate to play backwards.
 
 Enter with just a voice to view the current rate for that voice.
@@ -180,6 +182,8 @@ rate 1 2
 rate 1 0.8 1.5
 rate 1 0.5,1,1.5 rnd
 rate 1 -2,-2.4,-2.6 dn
+rate 1 s{1,2,3}
+rate 1 s{1,2,s{3,4}}
 ```
 
 ### rate_slew
