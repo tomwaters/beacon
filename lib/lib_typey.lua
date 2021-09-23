@@ -134,7 +134,7 @@ end
 
 typey.code = function(code, value)
   if value == 1 or value == 2 then
-    if code == "BACKSPACE" then
+    if code == "BACKSPACE" and typey.cmd_cursor_pos > 1 then
       typey.suggest_reset()
       typey.cmd_input = typey.cmd_input:sub(1, typey.cmd_cursor_pos - 2)..typey.cmd_input:sub(typey.cmd_cursor_pos)
       if #typey.cmd_input > 0 then
