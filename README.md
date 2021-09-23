@@ -69,9 +69,15 @@ Parameters in \< \> are required, those in ( ) are optional.
 
 [euc \<v#\> \<p\> \<s\> (o)](#euc)
 
-[*filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*](#filter)
+[rhy \<v#\> \<r\>](#rhy)
 
-[*lfo \<l#\> \<v#\> \<p\> \<f\> (a)*](#lfo)
+[filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)](#filter)
+
+[lfo \<l#\> \<v#\> \<p\> \<f\> (a)](#lfo)
+
+[delay \<off/fb\>](#delay)
+
+[delay_voice \<v#\> \<a\>](#delay_voice)
 
 Use the UP and DOWN arrow keys to scroll through command history.
 
@@ -244,6 +250,18 @@ euc 1 5 8
 euc 2 12 16 2
 ```
 
+### rhy
+*rhy \<v#\> \<r\>*
+
+As an alterntive to euc, specify a sequence as a list of zeros and ones.
+
+When *every* would normally play the voice, the current step of the sequence in checked and if set, the voice plays.
+
+Enter with just a voice to view the current rhy settings for that voice.
+```
+rhy 1 1,1,0,1
+```
+
 ### filter
 *filter \<v#\> \<off/hp/lp/bp\> \<f\> (q)*
 
@@ -270,4 +288,27 @@ An amount of 1 gives the full range specified above, an amount of 0.5 would give
 ```
 lfo 1 3 level 2
 lfo 2 5 pan 4 0.5
+```
+
+### delay
+*delay \<off/fb\>*
+
+Uses the 6th voice as a delay effect with the specified amount of feedback (fb).
+
+When enabled some commands cannot be used with voice 6 (e.g. range, every, euc) but others can (e.g rate, filter, level, lfo).
+
+```
+delay 0.75
+delay off
+```
+
+### delay_voice
+*delay_voice \<v#\> \<a\>*
+
+Specifies the amount (a) of voice (v#) to send to the delay effect.
+
+Enter with just a voice to view the current settings for that voice.
+
+```
+delay_voice 1 0.5
 ```

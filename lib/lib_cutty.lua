@@ -7,6 +7,8 @@ s = require("sequins")
 
 local two_pi = math.pi * 2
 local okResponse = "ok"
+local delay_voice = 6
+local delay_len = 1
 
 cutty = {}
 cutty.voices = {}
@@ -20,11 +22,12 @@ cutty.init = function()
       level = 1.0,
       pan = 0,
       start_sec = 0,
-      end_sec = softcut.BUFFER_SIZE,
+      end_sec = softcut.BUFFER_SIZE - delay_len,
       rate = {
         current = 1,
         min = 1.0
-      }
+      },
+      delay = 0
     }
     softcut.loop_start(i, cutty.voices[i].start_sec)
     softcut.loop_end(i, cutty.voices[i].end_sec)
@@ -125,7 +128,7 @@ end
 function every_handler(voice_num)
   while true do
     local every = cutty.voices[voice_num].every
-    local euc = cutty.voices[voice_num].euc
+    local rhy = cutty.voices[voice_num].rhy
     
     if every.unit == "b" then
       clock.sync(every.every)
@@ -133,12 +136,12 @@ function every_handler(voice_num)
 
     if math.random() <= every.chance / 100 then
       local do_play = true
-      if euc ~= nil then
-        if euc.pos > #euc.pattern then
-          euc.pos = 1
+      if rhy ~= nil then
+        if rhy.pos > #rhy.pattern then
+          rhy.pos = 1
         end
-        do_play = euc.pattern[euc.pos]
-        euc.pos = euc.pos + 1
+        do_play = rhy.pattern[rhy.pos]
+        rhy.pos = rhy.pos + 1
       end
       
       if do_play then
@@ -202,6 +205,24 @@ function print_sequin(s)
   end
   o = o.."}"
   
+  return o
+end
+
+function print_bool_table(t)
+  local o = ""
+  for _, n in pairs(t) do
+    if n then
+      o = o.."1"
+    else
+      o = o.."0"
+    end
+    
+    if next(t, _) ~= nil then
+      o = o..","
+    end
+
+  end
+
   return o
 end
 
@@ -277,7 +298,7 @@ cutty.cmds["load"] = function(args)
   if #args == 1 then
     softcut.buffer_clear_channel(1)
     softcut.buffer_clear_channel(2)
-    softcut.buffer_read_stereo(file, 0, 0, -1)
+    softcut.buffer_read_stereo(file, 0, 0, softcut.BUFFER_SIZE - delay_len)
   else
     local buf_num = tonumber(args[2])
     local start = 0
@@ -290,8 +311,8 @@ cutty.cmds["load"] = function(args)
       return get_help("load")
     end
     
-    softcut.buffer_clear_region_channel(buf_num, start, softcut.BUFFER_SIZE, 0, 0)
-    softcut.buffer_read_mono(file, 0, start, -1, 1, buf_num)
+    softcut.buffer_clear_region_channel(buf_num, start, softcut.BUFFER_SIZE - start - delay_len, 0, 0)
+    softcut.buffer_read_mono(file, 0, start, softcut.BUFFER_SIZE - start - delay_len, 1, buf_num)
   end
   
   return okResponse
@@ -305,6 +326,8 @@ cutty.cmds["rec"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("rec")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
   if cutty.voices[voice_num].rec_start == nil then
@@ -333,6 +356,8 @@ cutty.cmds["voice"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("voice")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
   if #args == 1 then
@@ -417,6 +442,8 @@ cutty.cmds["range"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("range")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
   if #args == 1 then
@@ -445,6 +472,8 @@ cutty.cmds["play"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("play")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   play_voice(voice_num)
     
@@ -459,6 +488,8 @@ cutty.cmds["stop"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("stop")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   softcut.play(voice_num, 0)
   
@@ -479,6 +510,8 @@ cutty.cmds["loop"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("loop")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
   if #args > 1 then
@@ -498,7 +531,7 @@ end
 
 cutty.cmds["rate"] = function(args)
   if #args == 0 or args[1] == "help" then
-    return "rate <v#> <r1> (r2) (p)"
+    return "rate <v#> <r>"
   end
 
   local voice_num = tonumber(args[1])
@@ -617,6 +650,8 @@ cutty.cmds["every"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("every")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
   if #args == 1 then
@@ -664,13 +699,16 @@ cutty.cmds["euc"] = function(args)
   local voice_num = tonumber(args[1])
   if voice_num == nil then
     return get_help("euc")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
   end
   
+  local rhy_type = "euc"
   if #args == 1 then
-    if cutty.voices[voice_num].euc == nil then
+    if cutty.voices[voice_num].rhy == nil or cutty.voices[voice_num].rhy.type ~= rhy_type then
       return "euc not set"
     else
-      return "euc "..cutty.voices[voice_num].euc.pulses.." "..cutty.voices[voice_num].euc.steps.." "..cutty.voices[voice_num].euc.offset
+      return "euc "..cutty.voices[voice_num].rhy.pulses.." "..cutty.voices[voice_num].rhy.steps.." "..cutty.voices[voice_num].rhy.offset
     end
   else
     local pulses = tonumber(args[2])
@@ -685,21 +723,57 @@ cutty.cmds["euc"] = function(args)
       return get_help("euc")
     end
 
-    local pos = 1
-    if cutty.voices[voice_num].euc ~= nil then
-      pos = cutty.voices[voice_num].euc.pos
-    end
-    
-    cutty.voices[voice_num].euc = {
+    cutty.voices[voice_num].rhy = {
+      type = rhy_type,
       pulses = pulses,
       steps = steps,
       offset = offset,
       pattern = er.gen(pulses, steps, offset),
-      pos = pos
+      pos = 1
     }
     
     return okResponse
   end
+end
+
+cutty.cmds["rhy"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "rhy <r>"
+  end
+  
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("rhy")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
+  end
+  
+  local rhy_type = "rhy"
+  if #args == 1 then
+    if cutty.voices[voice_num].rhy == nil or cutty.voices[voice_num].rhy.type ~= rhy_type then
+      return "rhy not set"
+    else
+      return "rhy "..print_bool_table(cutty.voices[voice_num].rhy.pattern)
+    end
+  else
+    local new_rhy = {}
+    for v in string.gmatch(args[2], "[^,]+") do
+      local v = tonumber(v)
+      if v == nil or v < 0 or v > 1 then
+        return get_help("rhy")
+      end
+      table.insert(new_rhy, v == 1)
+    end
+
+    cutty.voices[voice_num].rhy = {
+      type = rhy_type,
+      pattern = new_rhy,
+      pos = 1
+    }
+    
+    return okResponse
+  end
+  
 end
 
 cutty.cmds["filter"] = function(args)
@@ -828,6 +902,87 @@ cutty.cmds["lfo"] = function(args)
     end
   end
 
+  return okResponse  
+end
+
+cutty.cmds["delay_voice"] = function(args)
+  if #args == 0 or args[1] == "help" then
+    return "delay_voice <v#> <a>"
+  end
+  
+  if cutty.delay == nil then
+    return "delay is disabled"
+  end
+  
+  local voice_num = tonumber(args[1])
+  if voice_num == nil then
+    return get_help("delay_voice")
+  elseif cutty.delay ~= nil and voice_num == delay_voice then
+    return "v "..delay_voice.." is being used for delay"
+  end
+  
+  if #args == 1 then
+    return "delay_voice "..cutty.voices[voice_num].delay
+  else
+    local amount = tonumber(args[2])
+    if amount == nil then
+      return get_help("delay_voice")
+    end
+
+    cutty.voices[voice_num].delay = amount
+    softcut.level_cut_cut(voice_num, delay_voice, amount)
+
+    return okResponse
+  end
+end
+
+cutty.cmds["delay"] = function(args)
+  if #args > 0 and args[1] == "help" then
+    return "delay off/<fb>"
+  end
+
+  if #args == 0 then
+    if cutty.delay == nil then
+      return "delay is off"
+    else
+      return "delay is on fb:"..cutty.delay.feedback
+    end
+  elseif args[1] == "off" then
+    softcut.play(delay_voice, 0)
+    cutty.delay = nil
+  else
+    local fb = tonumber(args[1])
+    if fb == nil then
+      return get_help("delay")
+    end
+
+    if cutty.voices[delay_voice].every_clock ~= nil then
+      clock.cancel(cutty.voices[delay_voice].every_clock)
+    end
+    
+    if cutty.delay == nil then
+      cutty.delay = {}
+      cutty.voices[delay_voice].rate.min = 1
+      cutty.voices[delay_voice].level = 1
+      
+      softcut.level(delay_voice, 1)
+      softcut.play(delay_voice, 1)
+    	softcut.rate(delay_voice, 1)
+      softcut.rate_slew_time(delay_voice, 0.25)
+    	softcut.position(delay_voice, softcut.BUFFER_SIZE - delay_len)
+    	softcut.loop_start(delay_voice, softcut.BUFFER_SIZE - delay_len)
+    	softcut.loop_end(delay_voice, softcut.BUFFER_SIZE-0.5)
+    	softcut.loop(delay_voice, 1)
+    	softcut.fade_time(delay_voice, 0.1)
+    	softcut.rec(delay_voice, 1)
+    	softcut.rec_level(delay_voice, 1)
+    	softcut.enable(delay_voice, 1)
+    end
+
+    cutty.delay.feedback = fb    
+    softcut.pre_level(delay_voice, fb)
+  end
+  
   return okResponse  
 end
 
